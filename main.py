@@ -5,11 +5,17 @@ import tkinter.messagebox
 from tkinter import *
 from tkinter import filedialog
 
+import librosa
+import numpy as np
+from predict import predict_song, to_int_wav
+from model import load_model
 from tkinter import ttk
 from ttkthemes import themed_tk as tk
 
 from mutagen.mp3 import MP3
 from pygame import mixer
+
+model = load_model("models\\torch_model_v1.pth")
 
 root = tk.ThemedTk()
 root.get_themes()                 # Returns a list of all themes that can be set
@@ -42,7 +48,8 @@ def browse_file():
     global filename_path
     filename_path = filedialog.askopenfilename()
     add_to_playlist(filename_path)
-
+    # filename_path = filename_path.replace('/', '//')
+    print(filename_path)
     mixer.music.queue(filename_path)
 
 
@@ -52,6 +59,7 @@ def add_to_playlist(filename):
     playlistbox.insert(index, filename)
     playlist.insert(index, filename_path)
     index += 1
+    print(playlist)
 
 
 menubar.add_cascade(label="File", menu=subMenu)
@@ -213,20 +221,55 @@ def mute_music():
         muted = TRUE
 
 
+def convert():
+    cwd = os.getcwd().replace("\\", "/")
+    selected_song = playlistbox.curselection()
+    selected_song = int(selected_song[0])
+    play_it = playlist[selected_song]
+    statusbar['text'] = "Converting ... - Loading file ..."
+    song , sr = librosa.load(play_it, 44100)
+    statusbar['text'] = "Converting ... ..."
+    filename = (os.path.basename(play_it))
+    y_pred = predict_song(song, model)
+    statusbar['text'] = "Converting ... - Saving file ..."
+    beat = song - y_pred
+    to_int_wav("temp\\vocals_" + filename + ".mp3", y_pred)
+    to_int_wav("temp\\beat_" + filename + ".mp3", beat)
+    
+    global filename_path 
+    filename_path = cwd + "/temp/vocals_" + filename + ".mp3"
+    add_to_playlist(filename_path)
+    mixer.music.queue(filename_path)
+
+    filename_path = cwd + "/temp/beat_" + filename + ".mp3"
+    add_to_playlist(filename_path)
+    mixer.music.queue(filename_path)
+    statusbar['text'] = "Done converting!"
+
+def convert_beat():
+    statusbar['text'] = "Start converting ..."
+    t2 = threading.Thread(target=convert)
+    t2.start()
+    # statusbar['text'] = "Done converting!"
+
 middleframe = Frame(rightframe)
-middleframe.pack(pady=30, padx=30)
+middleframe.pack(pady=15, padx=30)
+
+convertPhoto = PhotoImage(file='images/reuse.png')
+convertBtn = ttk.Button(middleframe, image=convertPhoto, command=convert_beat)
+convertBtn.grid(row=0, column=0, padx=10)
 
 playPhoto = PhotoImage(file='images/play.png')
 playBtn = ttk.Button(middleframe, image=playPhoto, command=play_music)
-playBtn.grid(row=0, column=0, padx=10)
+playBtn.grid(row=0, column=1, padx=7)
 
 stopPhoto = PhotoImage(file='images/stop.png')
 stopBtn = ttk.Button(middleframe, image=stopPhoto, command=stop_music)
-stopBtn.grid(row=0, column=1, padx=10)
+stopBtn.grid(row=0, column=2, padx=7)
 
 pausePhoto = PhotoImage(file='images/pause.png')
 pauseBtn = ttk.Button(middleframe, image=pausePhoto, command=pause_music)
-pauseBtn.grid(row=0, column=2, padx=10)
+pauseBtn.grid(row=0, column=3, padx=6)
 
 # Bottom Frame for volume, rewind, mute etc.
 

@@ -1,0 +1,7 @@
+pydub
+librosa
+numpy
+tkinter
+ttkthemes
+mutagen
+pygame
