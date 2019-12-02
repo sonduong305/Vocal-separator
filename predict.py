@@ -3,6 +3,7 @@ import numpy as np
 import librosa
 from pydub import AudioSegment
 import time
+from youtube_download import get_audio
 n_fft = 1024
 def convert_stft(x):
     # Convert x data to stft 
@@ -19,28 +20,28 @@ kernel = np.concatenate((kernel, np.ones((509, 128))), axis = 0)
 
 
 def predict_part(x_part, model):
-    start = time.time()
+    # start = time.time()
     feature = convert_stft(x_part)
     phase = get_phase(x_part)
-    print(time.time() - start)
-    start = time.time()
-    out_voice = model(feature[None,:,:])
+    # print(time.time() - start)
+    # start = time.time()
+    out_voice = model(feature[None,:,:].cuda())
     out_voice = out_voice.cpu().detach().numpy()[0]
-    print(time.time() - start)
-    start = time.time()
+    # print(time.time() - start)
+    # start = time.time()
     # out_voice = cv2.dilate(out_voice,  closing)
     # out_voice = signal.fftconvolve(out_voice, closing, mode='same')
     feature = feature.numpy()
-    out_voice *= 1.05
-    mask = np.where(feature > 0.0001 , out_voice / feature, 0)
+    out_voice *= 1.1
+    mask = np.where(feature > 0 , out_voice / feature, 0)
     out_voice = feature * mask
     out_voice = np.where(out_voice > feature, feature, out_voice)
     
-    out_voice = out_voice * kernel
+    # out_voice = out_voice * kernel
     out_voice  = np.exp(out_voice) - 1
     out_voice = out_voice * np.exp(1j*phase)
     y_voice = librosa.istft(out_voice , hop_length = 768)
-    print(time.time() - start)
+    # print(time.time() - start)
     return y_voice
 
 def predict_song(path, model):
@@ -98,16 +99,14 @@ def predict_song(path, model):
     print("overall: " ,time.time() - start)
     return np.array(y_out)[:len(x)]
 
-def to_int_wav(filename, arr):
+def to_int_wav(filename, arr, sr):
     song = np.array(arr * 2147483647 , dtype = np.int32)
-    audio_segment = AudioSegment(song.tobytes(), frame_rate=44100,sample_width=4, channels=1)
+    audio_segment = AudioSegment(song.tobytes(), frame_rate=sr,sample_width=4, channels=1)
     audio_segment.export(filename, format="mp3", bitrate='128k')
 
 def predict_from_youtube(link, model):
     name = get_audio(link)
-    song , sr  = librosa.load('temp.mp3',sr = 44100)
+    song , sr  = librosa.load('temp.wav',sr = 44100)
     y = predict_song(song, model)
     beat = song - y
-    to_int_wav("temp\\beat.mp3", beat)
-    to_int_wav("temp\\vocals.mp3", y)
-    print("done predicting " + name)
+    return y, beat, name

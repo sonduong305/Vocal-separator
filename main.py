@@ -8,6 +8,7 @@ from tkinter import filedialog
 import librosa
 import numpy as np
 from predict import predict_song, to_int_wav
+from youtube_download import get_audio
 from model import load_model
 from tkinter import ttk
 from ttkthemes import themed_tk as tk
@@ -49,7 +50,7 @@ def browse_file():
     filename_path = filedialog.askopenfilename()
     add_to_playlist(filename_path)
     # filename_path = filename_path.replace('/', '//')
-    print(filename_path)
+    # print(filename_path)
     mixer.music.queue(filename_path)
 
 
@@ -59,7 +60,7 @@ def add_to_playlist(filename):
     playlistbox.insert(index, filename)
     playlist.insert(index, filename_path)
     index += 1
-    print(playlist)
+    # print(playlist)
 
 
 menubar.add_cascade(label="File", menu=subMenu)
@@ -68,14 +69,14 @@ subMenu.add_command(label="Exit", command=root.destroy)
 
 
 def about_us():
-    tkinter.messagebox.showinfo('About Melody', 'This is a music player build using Python Tkinter by @attreyabhatt')
+    tkinter.messagebox.showinfo('About Melody', 'This is a music player build using Python Tkinter')
 
 
 subMenu = Menu(menubar, tearoff=0)
 menubar.add_cascade(label="Help", menu=subMenu)
 subMenu.add_command(label="About Us", command=about_us)
 
-mixer.init()  # initializing the mixer
+mixer.init(frequency = 48000)  # initializing the mixer
 
 root.title("Melody")
 root.iconbitmap(r'images/melody.ico')
@@ -109,6 +110,7 @@ rightframe.pack(pady=30)
 
 topframe = Frame(rightframe)
 topframe.pack()
+
 
 lengthlabel = ttk.Label(topframe, text='Total Length : --:--')
 lengthlabel.pack(pady=5)
@@ -203,6 +205,16 @@ def set_vol(val):
     mixer.music.set_volume(volume)
     # set_volume of mixer takes value only from 0 to 1. Example - 0, 0.1,0.55,0.54.0.99,1
 
+def retrieve_input():
+    cwd = os.getcwd().replace("\\", "/")
+    statusbar['text'] = "Downloading audio from Youtube ..."
+    inputValue=textBox.get("1.0","end-1c")
+    filename = (get_audio(inputValue))
+    statusbar['text'] = "Audio from Youtube downloaded!"
+    global filename_path 
+    filename_path = cwd + "/temp/" + filename + ".wav"
+    add_to_playlist(filename_path)
+    mixer.music.queue(filename_path)
 
 muted = FALSE
 
@@ -220,21 +232,22 @@ def mute_music():
         scale.set(0)
         muted = TRUE
 
-
 def convert():
     cwd = os.getcwd().replace("\\", "/")
     selected_song = playlistbox.curselection()
     selected_song = int(selected_song[0])
     play_it = playlist[selected_song]
     statusbar['text'] = "Converting ... - Loading file ..."
-    song , sr = librosa.load(play_it, 44100)
+    song , sr = librosa.load(play_it, sr= 48000)
+    print(sr)
     statusbar['text'] = "Converting ... ..."
     filename = (os.path.basename(play_it))
     y_pred = predict_song(song, model)
     statusbar['text'] = "Converting ... - Saving file ..."
     beat = song - y_pred
-    to_int_wav("temp\\vocals_" + filename + ".mp3", y_pred)
-    to_int_wav("temp\\beat_" + filename + ".mp3", beat)
+
+    to_int_wav("temp\\vocals_" + filename + ".mp3", y_pred, sr)
+    to_int_wav("temp\\beat_" + filename + ".mp3", beat, sr)
     
     global filename_path 
     filename_path = cwd + "/temp/vocals_" + filename + ".mp3"
@@ -252,24 +265,38 @@ def convert_beat():
     t2.start()
     # statusbar['text'] = "Done converting!"
 
+youtubeframe = Frame(rightframe)
+youtubeframe.pack(pady=10, padx=30)
+
+linkLable = ttk.Label(youtubeframe, text='Youtube link goes here:')
+linkLable.grid(row=0, column=0, padx=0)
+
+textBox = Text(youtubeframe, height=1, width=40)
+textBox.grid(row=1, column=0, padx=10)
+
+# buttonCommit=Button(rightframe, , command=lambda: retrieve_input())
+buttonCommit = ttk.Button(youtubeframe, text="Get Audio", command=retrieve_input)
+buttonCommit.grid(row=1, column=1, padx=10)
+
 middleframe = Frame(rightframe)
-middleframe.pack(pady=15, padx=30)
+middleframe.pack(pady=10, padx=30)
+
 
 convertPhoto = PhotoImage(file='images/reuse.png')
 convertBtn = ttk.Button(middleframe, image=convertPhoto, command=convert_beat)
-convertBtn.grid(row=0, column=0, padx=10)
+convertBtn.grid(row=1, column=0, padx=10)
 
 playPhoto = PhotoImage(file='images/play.png')
 playBtn = ttk.Button(middleframe, image=playPhoto, command=play_music)
-playBtn.grid(row=0, column=1, padx=7)
+playBtn.grid(row=1, column=1, padx=7)
 
 stopPhoto = PhotoImage(file='images/stop.png')
 stopBtn = ttk.Button(middleframe, image=stopPhoto, command=stop_music)
-stopBtn.grid(row=0, column=2, padx=7)
+stopBtn.grid(row=1, column=2, padx=7)
 
 pausePhoto = PhotoImage(file='images/pause.png')
 pauseBtn = ttk.Button(middleframe, image=pausePhoto, command=pause_music)
-pauseBtn.grid(row=0, column=3, padx=6)
+pauseBtn.grid(row=1, column=3, padx=6)
 
 # Bottom Frame for volume, rewind, mute etc.
 

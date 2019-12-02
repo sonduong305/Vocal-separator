@@ -132,7 +132,7 @@ class VocalModel(nn.Module):
 
 def load_model(path):
     model = VocalModel()
-    # model.cuda()
+    model.cuda()
     # print(model)
     model.load_state_dict(torch.load(path))
     return model
