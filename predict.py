@@ -32,7 +32,7 @@ def predict_part(x_part, model):
     # out_voice = cv2.dilate(out_voice,  closing)
     # out_voice = signal.fftconvolve(out_voice, closing, mode='same')
     feature = feature.numpy()
-    out_voice *= 1.1
+    out_voice *= 1.15
     mask = np.where(feature > 0 , out_voice / feature, 0)
     out_voice = feature * mask
     out_voice = np.where(out_voice > feature, feature, out_voice)
